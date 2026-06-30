@@ -33,41 +33,32 @@ jobs:
             pkg-config zlib1g-dev libncurses-dev libtinfo6 cmake \
             libffi-dev libssl-dev build-essential ccache libltdl-dev
 
-      - name: Cache buildozer global directory
+      - name: Cache buildozer global
         uses: actions/cache@v4
         with:
           path: ~/.buildozer
           key: buildozer-global-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            buildozer-global-
 
-      - name: Cache buildozer local directory
+      - name: Cache buildozer local
         uses: actions/cache@v4
         with:
           path: .buildozer
           key: buildozer-local-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            buildozer-local-
 
       - name: Install buildozer and cython
         run: |
           python -m pip install --upgrade pip
-          pip install --user buildozer
-          pip install --user cython==0.29.36
+          pip install buildozer
+          pip install cython==0.29.36
 
-      - name: Build APK with buildozer
-        run: |
-          export PATH=$PATH:~/.local/bin/
-          yes | buildozer -v android debug 2>&1 | tee build.log
-        continue-on-error: false
+      - name: Show buildozer.spec
+        run: cat buildozer.spec | grep -E "^(requirements|package|version|android.api)" || true
 
-      - name: List output files
-        if: always()
+      - name: Build APK
         run: |
-          echo "=== Contenido de bin/ ==="
-          ls -lah bin/ 2>/dev/null || echo "No existe bin/"
-          echo "=== Últimas 50 líneas del log ==="
-          tail -n 50 build.log 2>/dev/null || true
+          buildozer -v android debug
+          echo "=== APK generated ==="
+          ls -lah bin/
 
       - name: Upload APK
         if: success()
@@ -76,11 +67,15 @@ jobs:
           name: NovaAI-APK
           path: bin/*.apk
           retention-days: 30
+          if-no-files-found: error
 
-      - name: Upload build log on failure
+      - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: build-log
-          path: build.log
+          name: build-logs
+          path: |
+            .buildozer/android/platform/build-*/build.log
+            *.log
           retention-days: 7
+          if-no-files-found: ignore
