@@ -22,7 +22,7 @@ source.main = main.py
 version = 1.0
 
 # Requisitos Python
-requirements = python3,kivy==2.3.0,certifi,urllib3,charset-normalizer,idna,requests,pyjnius,android,plyer
+requirements = python3,kivy==2.3.0,certifi,urllib3,charset-normalizer,idna,requests,plyer
 
 # Orientación
 orientation = portrait
