@@ -33,53 +33,36 @@ jobs:
             pkg-config zlib1g-dev libncurses-dev libtinfo6 cmake \
             libffi-dev libssl-dev build-essential ccache libltdl-dev
 
-      - name: Install buildozer and cython
+      - name: Install buildozer and dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install --upgrade buildozer
-          pip install cython==0.29.36
-
-      - name: Download Android SDK manually
-        run: |
-          mkdir -p ~/.buildozer/android/platform/android-sdk/cmdline-tools
-          cd /tmp
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdtools.zip
-          unzip -q cmdtools.zip
-          mv cmdline-tools ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest
-          mkdir -p ~/.buildozer/android/platform/android-sdk/tools
-          cp -r ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/* ~/.buildozer/android/platform/android-sdk/tools/
-          echo "✅ SDK Command-line Tools instaladas"
-          ls -la ~/.buildozer/android/platform/android-sdk/
-
-      - name: Accept all Android SDK licenses
-        run: |
-          export ANDROID_HOME=~/.buildozer/android/platform/android-sdk
-          export ANDROID_SDK_ROOT=$ANDROID_HOME
-          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
-          yes | sdkmanager --licenses --sdk_root=$ANDROID_HOME > /dev/null 2>&1 || true
-          yes | sdkmanager --sdk_root=$ANDROID_HOME \
-            "platform-tools" \
-            "build-tools;34.0.0" \
-            "platforms;android-33" \
-            "platforms;android-34" > /dev/null 2>&1 || true
-          echo "✅ Licencias aceptadas y herramientas pre-instaladas"
-          ls ~/.buildozer/android/platform/android-sdk/build-tools/ || echo "(no build-tools aún)"
+          pip install "buildozer==1.5.0"
+          pip install "cython==0.29.36"
 
       - name: Show buildozer.spec
-        run: cat buildozer.spec | grep -E "^(requirements|package|version|android\.)" || true
+        run: |
+          echo "=== buildozer.spec ==="
+          cat buildozer.spec | grep -E "^(requirements|package|version|android\.|orientation|fullscreen)" || true
 
       - name: Build APK
         env:
-          ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
-          ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
+          ANDROID_SDK_LICENSES_ACCEPT_ALL: "yes"
         run: |
-          yes | buildozer -v android debug
+          yes | buildozer -v android debug 2>&1 | tee build.log
+
+      - name: Show last 100 lines of log
+        if: always()
+        run: |
+          echo "=== Últimas 100 líneas del log ==="
+          tail -n 100 build.log 2>/dev/null || echo "(sin log)"
+          echo ""
+          echo "=== Contenido de bin/ ==="
+          ls -lah bin/ 2>/dev/null || echo "(no existe bin/)"
 
       - name: Verify APK was created
         run: |
           if [ ! -d bin ] || [ -z "$(ls -A bin/*.apk 2>/dev/null)" ]; then
             echo "❌ No se generó ninguna APK"
-            ls -lah bin/ 2>/dev/null || echo "(no existe bin/)"
             exit 1
           fi
           echo "✅ APK generada correctamente:"
@@ -100,6 +83,7 @@ jobs:
         with:
           name: build-logs
           path: |
+            build.log
             .buildozer/android/platform/build-*/build.log
           retention-days: 7
           if-no-files-found: ignore
